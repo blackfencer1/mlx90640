@@ -1,110 +1,110 @@
 import serial, time 
-2 import datetime as dt 
-3 import numpy as np 
-4 import cv2 
-5 
+import datetime as dt 
+import numpy as np 
+import cv2 
  
-6 # function to get Emissivity from MCU
  
-7 def get_emissivity(): 
-8 	ser.write(serial.to_bytes([0xA5,0x55,0x01,0xFB])) 
-9 	read = ser.read(4) 
-10 	return read[2]/100 
-11 
+# function to get Emissivity from MCU
  
-12 # function to get temperatures from MCU (Celsius degrees x 100)
+def get_emissivity(): 
+ser.write(serial.to_bytes([0xA5,0x55,0x01,0xFB])) 
+read = ser.read(4) 
+return read[2]/100 
  
-13 def get_temp_array(d): 
-14 
  
-15 	# getting ambient temperature
+# function to get temperatures from MCU (Celsius degrees x 100)
  
-16 	T_a = (int(d[1540]) + int(d[1541])*256)/100 
-17 
+def get_temp_array(d): 
  
-18 	# getting raw array of pixels temperature
  
-19 	raw_data = d[4:1540] 
-20 	T_array = np.frombuffer(raw_data, dtype=np.int16) 
-21 	 
-22 	return T_a, T_array 
-23 
+# getting ambient temperature
  
-24 # function to convert temperatures to pixels on image
+T_a = (int(d[1540]) + int(d[1541])*256)/100 
  
-25 def td_to_image(f): 
-26 	norm = np.uint8((f/100 - Tmin)*255/(Tmax-Tmin)) 
-27 	norm.shape = (24,32) 
-28 	return norm 
-29 
  
-30 ########################### Main cycle #################################
+# getting raw array of pixels temperature
  
-31 # Color map range
+raw_data = d[4:1540] 
+T_array = np.frombuffer(raw_data, dtype=np.int16) 
+ 	 
+return T_a, T_array 
  
-32 Tmax = 40 
-33 Tmin = 20 
-34 
  
-35 print ('Configuring Serial port') 
-36 ser = serial.Serial ('/dev/serial0') 
-37 ser.baudrate = 115200 
-38 
+# function to convert temperatures to pixels on image
  
-39 # set frequency of module to 4 Hz
+def td_to_image(f): 
+norm = np.uint8((f/100 - Tmin)*255/(Tmax-Tmin)) 
+norm.shape = (24,32) 
+return norm 
  
-40 ser.write(serial.to_bytes([0xA5,0x25,0x01,0xCB])) 
-41 time.sleep(0.1) 
-42 
  
-43 # Starting automatic data colection
+########################### Main cycle #################################
  
-44 ser.write(serial.to_bytes([0xA5,0x35,0x02,0xDC])) 
-45 t0 = time.time() 
-46 
+# Color map range
  
-47 try: 
-48 	while True: 
-49 		# waiting for data frame
+Tmax = 40 
+Tmin = 20 
  
-50 		data = ser.read(1544) 
-51 		 
-52 		# The data is ready, let's handle it!
  
-53 		Ta, temp_array = get_temp_array(data) 
-54 		ta_img = td_to_image(temp_array) 
-55 		 
-56 		# Image processing
+print ('Configuring Serial port') 
+ser = serial.Serial ('/dev/serial0') 
+ser.baudrate = 115200 
  
-57 		img = cv2.applyColorMap(ta_img, cv2.COLORMAP_JET) 
-58 		img = cv2.resize(img, (320,240), interpolation = cv2.INTER_CUBIC) 
-59 		img = cv2.flip(img, 1) 
-60 		 
-61 		text = 'Tmin = {:+.1f} Tmax = {:+.1f} FPS = {:.2f}'.format(temp_array.min()/100, temp_array.max()/100, 1/(time.time() - t0)) 
-62 		cv2.putText(img, text, (5, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1) 
-63 		cv2.imshow('Output', img) 
-64 		 
-65 		# if 's' is pressed - saving of picture
  
-66 		key = cv2.waitKey(1) & 0xFF 
-67 		if key == ord("s"): 
-68 			fname = 'pic_' + dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + '.jpg' 
-69 			cv2.imwrite(fname, img) 
-70 			print('Saving image ', fname) 
-71 		 
-72 		t0 = time.time() 
-73 
+# set frequency of module to 4 Hz
  
-74 except KeyboardInterrupt: 
-75 	# to terminate the cycle
+ser.write(serial.to_bytes([0xA5,0x25,0x01,0xCB])) 
+time.sleep(0.1) 
  
-76 	ser.write(serial.to_bytes([0xA5,0x35,0x01,0xDB])) 
-77 	ser.close() 
-78 	cv2.destroyAllWindows() 
-79 	print(' Stopped') 
-80 
  
-81 # just in case 
+# Starting automatic data colection
  
-82 ser.close() 
-83 cv2.destroyAllWindows() 
+ser.write(serial.to_bytes([0xA5,0x35,0x02,0xDC])) 
+t0 = time.time() 
+ 
+ 
+try: 
+while True: 
+# waiting for data frame
+ 
+data = ser.read(1544) 
+ 		 
+# The data is ready, let's handle it!
+ 
+Ta, temp_array = get_temp_array(data) 
+ta_img = td_to_image(temp_array) 
+ 		 
+# Image processing
+ 
+img = cv2.applyColorMap(ta_img, cv2.COLORMAP_JET) 
+img = cv2.resize(img, (320,240), interpolation = cv2.INTER_CUBIC) 
+img = cv2.flip(img, 1) 
+ 		 
+text = 'Tmin = {:+.1f} Tmax = {:+.1f} FPS = {:.2f}'.format(temp_array.min()/100, temp_array.max()/100, 1/(time.time() - t0)) 
+cv2.putText(img, text, (5, 15), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1) 
+cv2.imshow('Output', img) 
+ 		 
+# if 's' is pressed - saving of picture
+ 
+key = cv2.waitKey(1) & 0xFF 
+if key == ord("s"): 
+fname = 'pic_' + dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + '.jpg' 
+cv2.imwrite(fname, img) 
+print('Saving image ', fname) 
+ 		 
+t0 = time.time() 
+ 
+ 
+except KeyboardInterrupt: 
+# to terminate the cycle
+ 
+ser.write(serial.to_bytes([0xA5,0x35,0x01,0xDB])) 
+ser.close() 
+cv2.destroyAllWindows() 
+print(' Stopped') 
+ 
+ 
+# just in case 
+ 
+ser.close() 
+cv2.destroyAllWindows() 
